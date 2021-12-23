@@ -40,7 +40,6 @@ public class ImageTests extends BaseTest {
                 .response()
                 .jsonPath()
                 .getString("data.deletehash");
-
     }
 
     @Test
@@ -58,7 +57,6 @@ public class ImageTests extends BaseTest {
                 .response()
                 .jsonPath()
                 .getString("data.deletehash");
-
     }
 
     @AfterEach

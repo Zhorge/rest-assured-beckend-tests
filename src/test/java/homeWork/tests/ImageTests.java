@@ -1,10 +1,12 @@
 package homeWork.tests;
 
+import io.restassured.builder.MultiPartSpecBuilder;
+import io.restassured.builder.ResponseSpecBuilder;
+import io.restassured.filter.log.LogDetail;
+import io.restassured.specification.MultiPartSpecification;
+import io.restassured.specification.ResponseSpecification;
 import org.apache.commons.io.FileUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,44 +30,83 @@ public class ImageTests extends BaseTest {
     String titleForUpdate = "Heart";
     String descriptionForUpdate = "This is an image of a heart outline.";
 
+    static ResponseSpecification responseSpecBody;
+    static ResponseSpecification responseSpecBodyFileType;
+    static ResponseSpecification responseSpecBodyFileTitle;
+    static ResponseSpecification responseSpecBodyFileTitleIsNull;
+    static ResponseSpecification responseSpecBodyId;
+
+    public static MultiPartSpecification multiPartSpecFile;
+    public static MultiPartSpecification multiPartSpecFileBase64;
+    public static MultiPartSpecification multiPartSpecFileType;
+    public static MultiPartSpecification multiPartSpecFileTitle;
+
+    @BeforeEach
+    void beforeEach() {
+        byte[] byteArray = getFileContent();
+        encodedFile = Base64.getEncoder().encodeToString(byteArray);
+
+        multiPartSpecFile = new MultiPartSpecBuilder(new File(PATH_TO_IMAGE))
+                .controlName("image")
+                .build();
+
+        multiPartSpecFileBase64 = new MultiPartSpecBuilder(encodedFile)
+                .controlName("image")
+                .build();
+
+        multiPartSpecFileType = new MultiPartSpecBuilder(fileType)
+                .controlName("type")
+                .build();
+
+        multiPartSpecFileTitle = new MultiPartSpecBuilder(fileTitle)
+                .controlName("title")
+                .build();
+
+        responseSpecBody = new ResponseSpecBuilder()
+                .expectBody("success", equalTo(true))
+                .expectBody("status", equalTo(200))
+                .build();
+
+        responseSpecBodyFileType = new ResponseSpecBuilder()
+                .expectBody("data.type", equalTo("image/" + fileType))
+                .build();
+
+        responseSpecBodyFileTitle = new ResponseSpecBuilder()
+                .expectBody("data.title", equalTo(fileTitle))
+                .build();
+
+        responseSpecBodyFileTitleIsNull = new ResponseSpecBuilder()
+                .expectBody("data.title", is(nullValue()))
+                .build();
+
+        responseSpecBodyId = new ResponseSpecBuilder()
+                .expectBody("data.id", is(notNullValue()))
+                .build();
+    }
+
     @Nested
     class ImageUploadTests {
-        @BeforeEach
-        void beforeTest() {
-            byte[] byteArray = getFileContent();
-            encodedFile = Base64.getEncoder().encodeToString(byteArray);
-        }
 
         @AfterEach
         void tearDown() {
             given()
-                    .header("Authorization", token)
                     .when()
-                    .delete("https://api.imgur.com/3/account/{username}/image/{deleteHash}", "testprogmath", uploadedImageId)
-                    .prettyPeek()
-                    .then()
-                    .statusCode(200);
+                    .delete("/account/{username}/image/{deleteHash}", "testprogmath", uploadedImageId)
+                    .prettyPeek();
         }
 
+        @DisplayName("Загрузка image")
         @Test
         void uploadFileImage() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", new File(PATH_TO_IMAGE))
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFile)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", is(nullValue()))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileTitleIsNull)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
+                    .spec(responseSpecBodyFileType)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -74,27 +115,20 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+        @DisplayName("Загрузка image с параметрами Type и Title")
         @Test
         void uploadFileImageWithTypeAndTitleTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", new File(PATH_TO_IMAGE))
-                    .multiPart("type", fileType)
-                    .multiPart("title", fileTitle)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFile)
+                    .multiPart(multiPartSpecFileType)
+                    .multiPart(multiPartSpecFileTitle)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", equalTo(fileTitle))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitle)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -103,26 +137,19 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+        @DisplayName("Загрузка image с параметром Type")
         @Test
         void uploadFileImageWithTypeTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", new File(PATH_TO_IMAGE))
-                    .multiPart("type", fileType)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFile)
+                    .multiPart(multiPartSpecFileType)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", is(nullValue()))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitleIsNull)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -131,26 +158,19 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+        @DisplayName("Загрузка image с параметром Title")
         @Test
         void uploadFileImageWithTitleTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", new File(PATH_TO_IMAGE))
-                    .multiPart("title", fileTitle)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFile)
+                    .multiPart(multiPartSpecFileTitle)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", equalTo(fileTitle))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitle)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -159,25 +179,19 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+
+        @DisplayName("Загрузка imageBase64")
         @Test
         void uploadFileImageBase64() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", encodedFile)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFileBase64)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", is(nullValue()))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitleIsNull)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -186,27 +200,21 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+
+        @DisplayName("Загрузка imageBase64 с параметрами Type и Title")
         @Test
         void uploadFileImageBase64WithTypeAndTitleTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", encodedFile)
-                    .multiPart("type", fileType)
-                    .multiPart("title", fileTitle)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFileBase64)
+                    .multiPart(multiPartSpecFileType)
+                    .multiPart(multiPartSpecFileTitle)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", equalTo(fileTitle))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitle)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -215,26 +223,19 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+        @DisplayName("Загрузка imageBase64 с параметром Type")
         @Test
         void uploadFileImageBase64WithTypeTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", encodedFile)
-                    .multiPart("type", fileType)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFileBase64)
+                    .multiPart(multiPartSpecFileType)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", is(nullValue()))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitleIsNull)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -243,26 +244,19 @@ public class ImageTests extends BaseTest {
                     .getString("data.deletehash");
         }
 
+        @DisplayName("Загрузка imageBase64 с параметром Title")
         @Test
         void uploadFileImageBase64WithTitleTest() {
             uploadedImageId = given()
-                    .headers("Authorization", token)
-                    .multiPart("image", encodedFile)
-                    .multiPart("title", fileTitle)
-                    .log()
-                    .method()
-                    .log()
-                    .uri()
+                    .multiPart(multiPartSpecFileBase64)
+                    .multiPart(multiPartSpecFileTitle)
                     .expect()
-                    .contentType("application/json")
-                    .statusCode(200)
-                    .body("data.type", equalTo("image/" + fileType))
-                    .body("data.title", equalTo(fileTitle))
-                    .body("data.id", is(notNullValue()))
-                    .body("success", equalTo(true))
-                    .body("status", equalTo(200))
+                    .spec(responseSpecBodyFileType)
+                    .spec(responseSpecBodyFileTitle)
+                    .spec(responseSpecBodyId)
+                    .spec(responseSpecBody)
                     .when()
-                    .post("https://api.imgur.com/3/image")
+                    .post("/image")
                     .prettyPeek()
                     .then()
                     .extract()
@@ -272,25 +266,18 @@ public class ImageTests extends BaseTest {
         }
     }
 
+    @DisplayName("Апдейт image title и description")
     @Test
-    void uploadFileImage() {
+    void updateImageInfo() {
         uploadedImageIdForUpdate = given()
-                .headers("Authorization", token)
-                .multiPart("image", new File(PATH_TO_IMAGE))
-                .log()
-                .method()
-                .log()
-                .uri()
+                .multiPart(multiPartSpecFile)
                 .expect()
-                .contentType("application/json")
-                .statusCode(200)
-                .body("data.type", equalTo("image/" + fileType))
-                .body("data.title", is(nullValue()))
-                .body("data.id", is(notNullValue()))
-                .body("success", equalTo(true))
-                .body("status", equalTo(200))
+                .spec(responseSpecBodyFileType)
+                .spec(responseSpecBodyFileTitleIsNull)
+                .spec(responseSpecBodyId)
+                .spec(responseSpecBody)
                 .when()
-                .post("https://api.imgur.com/3/image")
+                .post("/image")
                 .prettyPeek()
                 .then()
                 .extract()
@@ -299,27 +286,18 @@ public class ImageTests extends BaseTest {
                 .getString("data.id");
 
         System.out.println(uploadedImageIdForUpdate);
-    }
 
-    @Test
-    void updateImageInfo() {
         given()
-                .headers("Authorization", token)
                 .multiPart("title", titleForUpdate)
                 .multiPart("description", descriptionForUpdate)
-                .log()
-                .all()
+                .log().all()
                 .expect()
-                .contentType("application/json")
-                .statusCode(200)
                 .body("data", equalTo(true))
-                .body("success", equalTo(true))
-                .body("status", equalTo(200))
+                .spec(responseSpecBody)
                 .when()
-                .post("https://api.imgur.com/3/image/{uploadedImageIdForUpdate}", uploadedImageIdForUpdate)
+                .post("/image/{uploadedImageIdForUpdate}", uploadedImageIdForUpdate)
                 .prettyPeek()
-                .then()
-                .statusCode(200);
+                .then();
     }
 
     private byte[] getFileContent() {
