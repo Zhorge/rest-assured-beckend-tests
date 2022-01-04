@@ -1,60 +1,24 @@
 package ru.annachemic.tests;
 
-import io.qameta.allure.restassured.AllureRestAssured;
-import io.restassured.RestAssured;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.builder.ResponseSpecBuilder;
-import io.restassured.filter.log.LogDetail;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import io.restassured.specification.ResponseSpecification;
+import com.github.javafaker.Faker;
 import org.junit.jupiter.api.BeforeAll;
+import retrofit2.Retrofit;
+import ru.annachemic.dto.Product;
+import ru.annachemic.service.CategoryService;
+import ru.annachemic.service.ProductService;
+import ru.annachemic.utils.RetrofitUtils;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.core.IsEqual.equalTo;
-
-public abstract class BaseTest {
-    static ResponseSpecification positiveResponseSpecification;
-    static RequestSpecification requestSpecificationWithAuth;
-
-    static Properties properties = new Properties();
-    static String token;
-    static String username;
+public class BaseTest {
+    static Retrofit client; // создаем объект типа Retrofit, в котором будет лежать client
+    static ProductService productService; // создаем объект ProductService, который мы описали
+    static CategoryService categoryService; // создаем объект CategoryService, который мы описали
+    Faker faker = new Faker(); // тестовые данные, которые вызываются в случаенном порядке
+    Product product;
 
     @BeforeAll
     static void beforeAll() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-        RestAssured.filters(new AllureRestAssured());
-        RestAssured.baseURI = "https://api.imgur.com/3";
-        getProperties();
-        token = properties.getProperty("token");
-        username = properties.getProperty("username");
-
-        positiveResponseSpecification = new ResponseSpecBuilder()
-                .expectBody("status", equalTo(200))
-                .expectBody("success", is(true))
-                .expectContentType(ContentType.JSON)
-                .expectStatusCode(200)
-                .build();
-
-        requestSpecificationWithAuth = new RequestSpecBuilder()
-                .addHeader("Authorization", token)
-                .setAccept(ContentType.JSON)
-                .setContentType(ContentType.ANY)
-                .log(LogDetail.ALL)
-                .build();
-    }
-
-    private static void getProperties() {
-        try (InputStream output = new FileInputStream("src/test/resources/application.properties")) {
-            properties.load(output);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        client = RetrofitUtils.getRetrofit();
+        productService = client.create(ProductService.class); // создаем ProductService
+        categoryService = client.create(CategoryService.class);
     }
 }
