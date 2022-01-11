@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import retrofit2.Response;
 import ru.annachemic.dto.Product;
 import ru.annachemic.enums.CategoryType;
+import ru.annachemic.utils.DbUtils;
 import ru.annachemic.utils.PrettyLogger;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -19,6 +20,7 @@ public class ProductTests extends BaseTest {
 
     Integer id;
     Product productForUpdate;
+    Product product;
 
     @BeforeEach
     void setUp() {
@@ -41,18 +43,27 @@ public class ProductTests extends BaseTest {
     @SneakyThrows
     @Test
     void createProductTest() {
+        //подсчет продуктов в БД до запроса
+        Integer countProductsBefore = DbUtils.countProducts(productsMapper);
+
         Response<Product> response = productService
                 .createProduct(product)
                 .execute();
 
-        id = response.body().getId();
+        //подсчет продуктов в БД после запроса
+        Integer countProductsAfter = DbUtils.countProducts(productsMapper);
 
         PrettyLogger.DEFAULT.log(response.body().toString());
+
+        //сравнение: кол-во продуктов ПОСЛЕ == кол-во продуктов ДО + 1
+        assertThat(countProductsAfter, equalTo(countProductsBefore + 1));
 
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
         assertThat(response.body().getTitle(), equalTo(product.getTitle()));
         assertThat(response.body().getPrice(), equalTo(product.getPrice()));
         assertThat(response.body().getCategoryTitle(), equalTo(product.getCategoryTitle()));
+
+        id = response.body().getId();
 
         Response<Product> responseGetProduct = productService
                 .getProduct(id)
@@ -67,10 +78,15 @@ public class ProductTests extends BaseTest {
     @SneakyThrows
     @Test
     void fullUpdateProductTest() {
+        Integer countProductsBefore = DbUtils.countProducts(productsMapper);
+
         Response<Product> response = productService
                 .createProduct(product)
                 .execute();
 
+        Integer countProductsAfter = DbUtils.countProducts(productsMapper);
+
+        assertThat(countProductsAfter, equalTo(countProductsBefore + 1));
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
         assertThat(response.body().getTitle(), equalTo(product.getTitle()));
         assertThat(response.body().getPrice(), equalTo(product.getPrice()));
